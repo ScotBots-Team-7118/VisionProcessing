@@ -263,40 +263,36 @@ public final class Main {
     System.out.println("Starting switched camera '" + config.name + "' on " + config.key);
     MjpegServer server = CameraServer.getInstance().addSwitchedCamera(config.name);
 
-
-    NetworkTableInstance.getDefault()
-        .getEntry(config.key)
-        .addListener(event -> {
-              if (event.value.isDouble()) {
-                int i = (int) event.value.getDouble();
-                if (i >= 0 && i < cameras.size()) {
-                  server.setSource(cameras.get(i));
-                }
-              } else if (event.value.isString()) {
-                String str = event.value.getString();
-                for (int i = 0; i < cameraConfigs.size(); i++) {
-                  if (str.equals(cameraConfigs.get(i).name)) {
-                    server.setSource(cameras.get(i));
-                    break;
-                  }
-                }
-              }
-            },
-            EntryListenerFlags.kImmediate | EntryListenerFlags.kNew | EntryListenerFlags.kUpdate);
+    NetworkTableInstance.getDefault().getEntry(config.key).addListener(event -> {
+      if (event.value.isDouble()) {
+        int i = (int) event.value.getDouble();
+        if (i >= 0 && i < cameras.size()) {
+          server.setSource(cameras.get(i));
+        }
+      } else if (event.value.isString()) {
+        String str = event.value.getString();
+        for (int i = 0; i < cameraConfigs.size(); i++) {
+          if (str.equals(cameraConfigs.get(i).name)) {
+            server.setSource(cameras.get(i));
+            break;
+          }
+        }
+      }
+    }, EntryListenerFlags.kImmediate | EntryListenerFlags.kNew | EntryListenerFlags.kUpdate);
 
     return server;
   }
 
   // /**
-  //  * Example pipeline.
-  //  */
+  // * Example pipeline.
+  // */
   // public static class MyPipeline implements VisionPipeline {
-  //   public int val;
+  // public int val;
 
-  //   @Override
-  //   public void process(Mat mat) {
-  //     val += 1;
-  //   }
+  // @Override
+  // public void process(Mat mat) {
+  // val += 1;
+  // }
   // }
 
   /**
@@ -336,16 +332,14 @@ public final class Main {
     if (cameras.size() >= 1) {
       new Thread(() -> {
         NetworkTable table = NetworkTableInstance.getDefault().getTable("GripVisionData");
-        
-	       NetworkTableEntry valid = table.getEntry("Valid");
-         //NetworkTableEntry rectpoints = table.getEntry("Rectangle Points");
-         NetworkTableEntry rectpoint1x = table.getEntry("Rectangle point 1 x ");
-	      NetworkTableEntry rectpoint1y  = table.getEntry("Rectangle point 1 y ");
-	      NetworkTableEntry rectpoint2x = table.getEntry("Rectangle point 2 x");
-	      NetworkTableEntry rectpoint2y = table.getEntry("Rectangle point 2 y");
-        
-         
-        	
+
+        NetworkTableEntry valid = table.getEntry("Valid");
+        // NetworkTableEntry rectpoints = table.getEntry("Rectangle Points");
+        NetworkTableEntry rectpoint1x = table.getEntry("Rectangle point 1 x ");
+        NetworkTableEntry rectpoint1y = table.getEntry("Rectangle point 1 y ");
+        NetworkTableEntry rectpoint2x = table.getEntry("Rectangle point 2 x");
+        NetworkTableEntry rectpoint2y = table.getEntry("Rectangle point 2 y");
+
         CvSink videoIn = CameraServer.getInstance().getVideo();
         CameraServer.getInstance().addServer("Outline");
         // CameraServer.getInstance()
@@ -354,7 +348,6 @@ public final class Main {
         CvSource outputStream = CameraServer.getInstance().putVideo("Default", 640, 480);
         CvSource outputStreamOutline = CameraServer.getInstance().putVideo("Outline", 640, 480);
 
-
         Mat source = new Mat();
         Mat output = new Mat();
 
@@ -362,40 +355,49 @@ public final class Main {
 
         Scalar color = new Scalar(0, 0, 255);
         GripPipeline p = new GripPipeline();
-  
-        
-        while(!Thread.interrupted()) {
-          if(videoIn.grabFrame(source) == 0) {
+
+        while (!Thread.interrupted()) {
+          if (videoIn.grabFrame(source) == 0) {
             continue;
           }
 
           p.process(source);
 
-          Imgproc.rectangle(source, p.startingPoint, p.oppositePoint, color, thickness); 
-          //SsImgproc.cvtColor(source, output, Imgproc.boundingRect(array));
+          Imgproc.rectangle(source, p.startingPoint, p.oppositePoint, color, thickness);
+          // SsImgproc.cvtColor(source, output, Imgproc.boundingRect(array));
           // Imgproc.cvtColor(source, output, Imgproc.COLOR_BGR2YCrCb);
           outputStream.putFrame(source);
           outputStreamOutline.putFrame(source);
         }
-        
-
-        
 
       });
-       VisionThread visionThread = new VisionThread(cameras.get(0),
-             new GripPipeline(), pipeline -> {
+      VisionThread visionThread = new VisionThread(cameras.get(0), new GripPipeline(), pipeline -> {
 
-        //do something with pipeline results
+        // do something with pipeline results
       });
-     
-      
+
       // VisionThread visionThread = new VisionThread(cameras.get(0),
-      //         new GripPipeline(), pipeline -> {
-      //   ...
+      // new GripPipeline(), pipeline -> {
+      // ...
       // });
-       
-       visionThread.start();
+
+      visionThread.start();
     }
+    new Thread(() -> {
+      Process p;
+      try {
+        p = Runtime.getRuntime().exec("/usr/bin/python3 /home/pi/tfmini.py");
+        try {
+          p.waitFor();
+        } catch (InterruptedException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    });
 
     // loop forever
     for (;;) {

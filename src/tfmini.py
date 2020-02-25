@@ -1,8 +1,56 @@
 # Read from tfmini sensor and post to networktable
 from networktables import NetworkTables
 import serial
+import json
+
+
+def readConfig():
+    """Read configuration file."""
+
+    configFile = "/boot/frc.json"
+
+    # parse file
+    try:
+        with open(configFile, "rt", encoding="utf-8") as f:
+            j = json.load(f)
+    except OSError as err:
+        print("could not open '{}': {}".format(configFile, err), file=sys.stderr)
+        return False
+
+    # top level must be an object
+    if not isinstance(j, dict):
+        parseError("must be JSON object")
+        return False
+
+    # team number
+    team = 7118
+    try:
+        team = j["team"]
+    except KeyError:
+        parseError("could not read team number")
+        return False
+
+    ntserver = "roborio-7118-frc.local"
+    server = False
+    # ntmode (optional)
+    if "ntmode" in j:
+        str = j["ntmode"]
+        if str.lower() == "client":
+            server = False
+        elif str.lower() == "server":
+            server = True
+        else:
+            parseError("could not understand ntmode value '{}'".format(str))
+    if server:
+        ntserver = '127.0.0.1'
+    else:
+        ntserver = "roborio-7118-frc.local"
+    
+    print("ntserver is: " + ntserver)
+    return ntserver
 
 ser = serial.Serial("/dev/ttyUSB0", 115200)
+ntserver = readConfig()
 # NetworkTables.initialize(server='roborio-7118-frc.local')
 NetworkTables.initialize(server='127.0.0.1')
 gripdata = NetworkTables.getTable('GripVisionData')
@@ -25,7 +73,7 @@ def runForever():
                 else:
                     gripdata.putBoolean("distanceValid", False)
 
-                print('(', distance, ',', strength, ')')
+                # print('(', distance, ',', strength, ')')
                 ser.reset_input_buffer()
 
 if __name__ == "__main__":
